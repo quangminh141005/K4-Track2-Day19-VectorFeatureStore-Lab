@@ -45,6 +45,9 @@ gen-advanced: ## [both] Generate data for the advanced missions (NB6 + NB8)
 	@$(PY) scripts/gen_agent_queries.py
 	@$(PY) scripts/gen_spend.py
 
+notebooks-core: ## [both] Execute required NB1–NB4 only, preserving outputs
+	@$(PY) scripts/execute_core.py
+
 notebooks: ## [both] Execute ALL notebooks headless (what the grader runs)
 	@$(JUPYTEXT) --to notebook --update notebooks/[0-9]*.py >/dev/null 2>&1 || true
 	@for nb in notebooks/[0-9]*.ipynb; do \
@@ -90,6 +93,6 @@ docker-down: ## [docker] Stop services (data persists)
 docker-clean: ## [docker] Stop AND wipe Qdrant + Redis + Postgres volumes
 	docker compose down -v
 
-.PHONY: help setup-lite verify-lite seed gen-advanced notebooks api lab benchmark test clean-lite \
+.PHONY: help setup-lite verify-lite seed gen-advanced notebooks notebooks-core api lab benchmark test clean-lite \
         setup-docker verify-docker docker-up docker-down docker-clean \
         runtime-check container-up container-down

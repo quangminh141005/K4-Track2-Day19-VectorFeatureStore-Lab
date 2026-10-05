@@ -33,6 +33,22 @@ make benchmark        # Precision@10 + latency table
 make lab              # Jupyter Lab on :8888
 ```
 
+To use an existing Miniconda environment (without creating `.venv`):
+
+```bash
+bash setup-lite-conda.sh                 # defaults to env_vinai_lab
+# bash setup-lite-conda.sh another_env    # optional environment name
+conda activate env_vinai_lab
+make VENV="$CONDA_PREFIX" api
+make VENV="$CONDA_PREFIX" benchmark
+make VENV="$CONDA_PREFIX" lab
+```
+
+The script activates the existing environment, installs the lite dependencies,
+converts notebooks, seeds the data, and runs the smoke check. Activation inside
+the script does not change your calling terminal. Use `VENV="$CONDA_PREFIX"`
+with the Makefile commands above to select the Conda environment's executables.
+
 Yêu cầu: **Python 3.10–3.14**. Không cần Docker, không cần GPU, không cần OpenAI key.
 
 > **Python 3.14:** `pyarrow` được nới lên `<26` (bản `<22` không có wheel cho
@@ -56,6 +72,7 @@ make lab             Lite: Jupyter Lab on :8888
 make benchmark       Both: Precision@10 + P99 latency table
 make test            Both: pytest (34 tests, ~2 s)
 make gen-advanced    Both: regenerate NB6 compound queries + NB8 spend parquet
+make notebooks-core  Both: execute required NB1–NB4 with outputs preserved
 make notebooks       Both: execute ALL notebooks headless (what the grader runs)
 make clean-lite      Lite: wipe venv + data + Feast registry
 

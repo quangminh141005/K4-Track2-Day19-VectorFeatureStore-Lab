@@ -17,6 +17,7 @@
 # %%
 import _setup  # noqa: F401
 import subprocess
+import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -52,7 +53,8 @@ def make_user_profile(n_users: int = 100) -> pl.DataFrame:
 
 def make_item_popularity(n_items: int = 1000) -> pl.DataFrame:
     return pl.DataFrame({
-        "doc_id": [f"item_{i:04d}" for i in range(n_items)],
+        "doc_id": [json.loads(line)["doc_id"] for line in
+                   (REPO_ROOT / "data" / "corpus_vn.jsonl").read_text().splitlines()[:n_items]],
         "click_count_24h": [(i * 13) % 500 for i in range(n_items)],
         "ctr_7d": [round(((i * 7) % 100) / 100.0, 3) for i in range(n_items)],
         "avg_dwell_seconds": [10.0 + (i * 0.7) % 90 for i in range(n_items)],
@@ -94,6 +96,8 @@ if res.stderr:
     print("STDERR:")
     print(res.stderr)
 assert res.returncode == 0, f"feast apply failed: {res.stderr}"
+views = subprocess.run(["feast", "feature-views", "list"], cwd=str(FEAST_DIR), capture_output=True, text=True, check=True)
+print(views.stdout)
 
 # %% [markdown]
 # ## 3. `feast materialize-incremental` — load offline → online
@@ -113,6 +117,20 @@ if res.stderr:
     print("STDERR (tail):")
     print(res.stderr[-500:])
 assert res.returncode == 0, f"materialize failed: {res.stderr}"
+
+# SQLite stores one row per entity and feature; report distinct materialized entities.
+if (FEAST_DIR / "online_store.db").exists():
+    import sqlite3
+    with sqlite3.connect(FEAST_DIR / "online_store.db") as connection:
+        for view, expected in (("user_profile_features", 100),
+                               ("query_velocity_features", 100),
+                               ("item_popularity_features", 1000)):
+            count = connection.execute(
+                f'SELECT COUNT(DISTINCT entity_key) FROM "lab19_{view}"'
+            ).fetchone()[0]
+            print(f"Materialized {view}: {count} entities")
+            assert count == expected
+
 
 # %% [markdown]
 # ## 4. Online lookup — đo latency
@@ -147,7 +165,7 @@ print(f"Single lookup: {single_latency_ms:.2f}ms")
 print({k: v[0] for k, v in features.items()})
 
 # %% [markdown]
-# ## 5. TODO — Batch latency benchmark (100 lookups, P99)
+# ## 5. Batch latency benchmark (100 lookups, P99)
 
 # %%
 latencies: list[float] = []
@@ -185,7 +203,7 @@ else:
 import pandas as pd
 entity_df = pd.DataFrame({
     "user_id": ["u_001", "u_002", "u_003"],
-    "event_timestamp": [NOW - timedelta(hours=2), NOW - timedelta(hours=1), NOW],
+    "event_timestamp": [NOW - timedelta(minutes=30), NOW - timedelta(hours=1), NOW],
 })
 
 historical = fs.get_historical_features(
